@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @Log4j2
@@ -15,71 +16,139 @@ public class MyController {
 
     @Autowired
     private BookRepo bookRepo;
-
-    @GetMapping("/log")
-    public void logChecking(){
-        log.trace("trace");
-        log.info("info");
-        log.error("Error");
-    }
     @GetMapping("/book")
     public List<Book> allBook(){
         log.info("All Books is accessed");
-        return bookRepo.findAll();
+        List<Book> books=bookRepo.findAll();
+        books=books.stream()
+                .filter(s->s.isAvailable())
+                .collect(Collectors.toList());
+        return books;
     }
 
     @PostMapping("/book")
     public Book addBook(@RequestBody Book book)
     {
-        log.info("A Book is added in the Database");
-        bookRepo.save(book);
-        return book;
+        try{
+            Book b=bookRepo.getReferenceById(book.getId());
+            if(b!=null)
+            {
+                throw new RuntimeException("The Book with id "+book.getId()+" is Already present");
+            }
+            else{
+                bookRepo.save(book);
+                log.info("The Book is Added: "+book);
+                return book;
+            }
+        }
+        catch (Exception e)
+        {
+            log.error(e);
+            return null;
+        }
     }
     @PutMapping("/book/{id}")
     public Book updateBook(@PathVariable int id,@RequestBody Book book)
     {
-        Book b=bookRepo.findById(id).orElse(null);
-        if(b!=null){
-            b.setAuthor(book.getAuthor());
-            b.setName(book.getName());
-            log.info("The Book has been updated");
-            bookRepo.save(b);
+        try{
+            Book b=bookRepo.getReferenceById(id);
+            if(b!=null && book.getId()==id)
+            {
+                bookRepo.save(book);
+                log.info("The book has been updated "+book);
+                return book;
+            }
+            else if(b==null) {
+                throw  new RuntimeException("The Book is with "+ id+ " is not present in the Database");
+            }
+            else{
+                throw new RuntimeException("Invalid Input");
+            }
         }
-        else{
-            log.info("The books with id "+ id+" is not present");
-            log.info("We added the given book as new Book");
-            log.info(book+" is added");
-            bookRepo.save(book);
+        catch (Exception e)
+        {
+            log.error(e);
+            return null;
         }
-        return book;
     }
 
     @DeleteMapping("/book/{id}")
     public String deleteBook(@PathVariable int id) {
-        Book b=bookRepo.findById(id).orElse(null);
-        if(b!=null)
-        {
-            bookRepo.delete(b);
-            log.info("Book is deleted from database");
-            return "Book is deleted";
+        try{
+            Book b=bookRepo.getReferenceById(id);
+            if(b!=null){
+                log.info("The Book " +b+" has been deleted from the Database");
+                bookRepo.delete(b);
+                return "The Book is Successfully Deleted";
+            }
+            else{
+                throw new RuntimeException("The Book with id : "+id+ " is not present in Database");
+            }
         }
-        else{
-            log.error("book is not present in the Database");
-            return "Book is Not Present in Database";
+        catch (Exception e)
+        {
+            log.error(e);
+            return "Error Occured.. The Book is not present in the Database";
         }
     }
 
     @GetMapping("/book/{id}")
     public String getBook(@PathVariable int id)
     {
-         Book b=bookRepo.findById(id).orElse(null);
-         if(b!=null) {
-             log.info("Book is Searched and Founded:");
-             return b.toString();
-         }
-         else{
-             log.error("Book is not in the database");
-             return "Book is not present in Database";
-         }
+       try{
+           Book b=bookRepo.getReferenceById(id);
+           return b.toString();
+       }
+       catch (Exception e){
+           log.error(e);
+           return "Book Not Found";
+       }
     }
+
+    @PutMapping("/issue/{id}")
+    public Book issueBook(@PathVariable int id)
+    {
+        try{
+            Book b=bookRepo.getReferenceById(id);
+            if(b!=null && b.isAvailable())
+            {
+                b.setAvailable(false);
+                bookRepo.save(b);
+                return b;
+            }
+            else{
+                return null;
+            }
+        }
+        catch (Exception e)
+        {
+            log.error(e);
+            return null;
+        }
+    }
+    @PutMapping("/return/{id}")
+    public String returnBook(@PathVariable int id)
+    {
+        log.info("Return Book is Accessed");
+        try{
+            Book b=bookRepo.getReferenceById(id);
+            if(b!=null & !b.isAvailable())
+            {
+                b.setAvailable(true);
+                bookRepo.save(b);
+                log.info("The Book :"+b+"is Returned");
+                return "Book Returned";
+            }
+            else{
+                log.warn("The Book is Not Issued");
+                return "The Book is not Issued>>>";
+            }
+        }
+        catch (Exception e)
+        {
+            log.error(e);
+            return "Sorry.. Error Occured";
+        }
+    }
+
 }
