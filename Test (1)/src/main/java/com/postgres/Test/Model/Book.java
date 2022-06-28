@@ -15,6 +15,16 @@ public class Book {
     private String name;
     @Column(name="author")
     private String author;
+    @Column(name="available")
+    private boolean available;
+
+    public boolean isAvailable() {
+        return available;
+    }
+
+    public void setAvailable(boolean available) {
+        this.available = available;
+    }
 
     public String getAuthor() {
         return author;
@@ -46,6 +56,7 @@ public class Book {
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", author='" + author + '\'' +
+                ", available=" + available +
                 '}';
     }
 }
